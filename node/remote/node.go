@@ -3,9 +3,10 @@ package remote
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
-	"io"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx"
 	"net/http"
 	"strings"
 	"time"
@@ -190,27 +191,79 @@ func (cp *Node) BlockResults(height int64) (*tmctypes.ResultBlockResults, error)
 
 // Tx implements node.Node
 func (cp *Node) Tx(hash string) (*types.Transaction, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/cosmos/tx/v1beta1/txs/%s", cp.txServiceAPI, hash))
+	decodedHash, err := hex.DecodeString(hash)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	result, err := cp.client.Tx(cp.ctx, decodedHash, false)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response body")
+		return nil, err
 	}
-
-	var convTx *types.Transaction
-	err = json.Unmarshal(body, &convTx)
+	logs, err := sdk.ParseABCILogs(result.TxResult.Log)
 	if err != nil {
-		return nil, fmt.Errorf("error converting transaction: %s", err.Error())
+		return nil, err
 	}
 
+	var convTx = &types.Transaction{
+		TxResponse: &types.TxResponse{
+			TxResponse: &sdk.TxResponse{
+				Height:    result.Height,
+				TxHash:    result.Hash.String(),
+				Codespace: result.TxResult.Codespace,
+				Code:      result.TxResult.Code,
+				Data:      string(result.TxResult.Data),
+				RawLog:    result.TxResult.Log,
+				Logs:      logs,
+				Info:      result.TxResult.Info,
+				GasWanted: result.TxResult.GasWanted,
+				GasUsed:   result.TxResult.GasUsed,
+				Tx:        nil,
+				Timestamp: "",
+				Events:    result.TxResult.Events,
+			},
+			Tx:        nil,
+			Height:    uint64(result.Height),
+			GasWanted: uint64(result.TxResult.GasWanted),
+			GasUsed:   uint64(result.TxResult.GasUsed),
+		},
+		Tx: &types.Tx{
+			Tx: &tx.Tx{
+				Body: &tx.TxBody{
+					Messages:                    nil,
+					Memo:                        "",
+					TimeoutHeight:               0,
+					ExtensionOptions:            nil,
+					NonCriticalExtensionOptions: nil,
+				},
+				AuthInfo: &tx.AuthInfo{
+					SignerInfos: []*tx.SignerInfo{},
+					Fee:         &tx.Fee{},
+					Tip:         nil,
+				},
+				Signatures: [][]byte{},
+			},
+			Body: &types.TxBody{
+				TxBody: &tx.TxBody{
+					Messages:                    nil,
+					Memo:                        "",
+					TimeoutHeight:               0,
+					ExtensionOptions:            nil,
+					NonCriticalExtensionOptions: nil,
+				},
+				TimeoutHeight: 0,
+				Messages:      []types.Message{},
+			},
+			AuthInfo: &types.AuthInfo{
+				AuthInfo:    nil,
+				SignerInfos: nil,
+				Fee: &types.Fee{
+					Fee:      nil,
+					GasLimit: 0,
+				},
+			},
+		},
+	}
 	return convTx, nil
 }
 
