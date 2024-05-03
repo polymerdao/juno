@@ -89,6 +89,34 @@ func (db *Database) HasBlock(height int64) (bool, error) {
 	return res, err
 }
 
+// GetBlock returns the block having the given height
+func (db *Database) GetBlock(height int64) (types.Block, error) {
+	var block types.Block
+	err := db.SQL.QueryRow(`
+        SELECT height, hash, num_txs, total_gas, proposer_address, timestamp 
+        FROM block 
+        WHERE height = $1;
+    `, height).Scan(
+		&block.Height,
+		&block.Hash,
+		&block.TxNum,
+		&block.TotalGas,
+		&block.ProposerAddress,
+		&block.Timestamp,
+	)
+
+	if err != nil {
+		return types.Block{}, err
+	}
+	return block, nil
+}
+
+// DeleteBlock deletes the block having the given height
+func (db *Database) DeleteBlock(height int64) error {
+	_, err := db.SQL.Exec(`DELETE FROM block WHERE height = $1 LIMIT 1;`, height)
+	return err
+}
+
 // GetLastBlockHeight returns the last block height stored inside the database
 func (db *Database) GetLastBlockHeight() (int64, error) {
 	stmt := `SELECT height FROM block ORDER BY height DESC LIMIT 1;`
