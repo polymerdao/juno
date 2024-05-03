@@ -113,6 +113,8 @@ func startParsing(ctx *parser.Context) error {
 		go enqueueNewBlocks(exportQueue, ctx)
 	}
 
+	go enqueueReorgedBlocks(ctx)
+
 	// Block main process (signal capture will call WaitGroup's Done)
 	waitGroup.Wait()
 	return nil
@@ -177,6 +179,58 @@ func enqueueNewBlocks(exportQueue types.HeightQueue, ctx *parser.Context) {
 			ctx.Logger.Debug("enqueueing new block", "height", currHeight)
 			exportQueue <- currHeight
 		}
+		time.Sleep(config.GetAvgBlockTime())
+	}
+}
+
+func enqueueReorgedBlocks(ctx *parser.Context) {
+	for {
+		latestBlockHeight := mustGetLatestHeight(ctx)
+		lastDbBlockHeight, err := ctx.Database.GetLastBlockHeight()
+		if err != nil {
+			ctx.Logger.Error("failed to get last block height from database", "error", err)
+		}
+
+		if lastDbBlockHeight > latestBlockHeight {
+			ctx.Logger.Info("reorg detected, syncing reorged blocks...", "latest_block_height", latestBlockHeight, "last_db_block_height", lastDbBlockHeight)
+
+			currHeight := latestBlockHeight
+
+			// delete all reorged blocks from the database that are higher than the latest block height from the node
+			for ; currHeight <= lastDbBlockHeight; currHeight++ {
+				err := ctx.Database.DeleteBlock(currHeight)
+				if err != nil {
+					ctx.Logger.Error("failed to delete block during reorg", "height", currHeight, "error", err)
+				}
+			}
+
+			// delete all previous blocks that don't have a matching block hash from the node for a given height
+			currHeight = latestBlockHeight - 1
+
+			// loop until the current height is equal to the last block height from the node
+			for {
+				currBlock, err := ctx.Node.Block(currHeight)
+				if err != nil {
+					ctx.Logger.Error("failed to get block during reorg", "height", currHeight, "error", err)
+				}
+				currDbBlock, err := ctx.Database.GetBlock(currHeight)
+				if err != nil {
+					ctx.Logger.Error("failed to get block from database during reorg", "height", currHeight, "error", err)
+				}
+
+				if currBlock.Block.Hash().String() == currDbBlock.Hash {
+					break
+				}
+
+				err = ctx.Database.DeleteBlock(currHeight)
+				if err != nil {
+					ctx.Logger.Error("failed to delete block during reorg", "height", currHeight, "error", err)
+				}
+
+				currHeight--
+			}
+		}
+
 		time.Sleep(config.GetAvgBlockTime())
 	}
 }
