@@ -14,6 +14,12 @@ type Database interface {
 	// An error is returned if the operation fails.
 	HasBlock(height int64) (bool, error)
 
+	// GetBlock returns the block having the given height.
+	GetBlock(height int64) (types.Block, error)
+
+	// DeleteBlock deletes the block having the given height.
+	DeleteBlock(height int64) error
+
 	// GetLastBlockHeight returns the last block height stored in database..
 	// An error is returned if the operation fails.
 	GetLastBlockHeight() (int64, error)
