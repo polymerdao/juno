@@ -58,6 +58,7 @@ CREATE TABLE transaction
 CREATE INDEX transaction_hash_index ON transaction (hash);
 CREATE INDEX transaction_height_index ON transaction (height);
 CREATE INDEX transaction_partition_id_index ON transaction (partition_id);
+CREATE INDEX transaction_logs_index ON transaction USING GIN(logs);
 
 CREATE TABLE message
 (
