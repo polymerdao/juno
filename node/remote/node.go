@@ -7,6 +7,8 @@ import (
 	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/forbole/juno/v5/types/env"
+	"github.com/forbole/juno/v5/types/utils"
 	"net/http"
 	"strings"
 	"time"
@@ -39,7 +41,8 @@ type Node struct {
 
 // NewNode allows to build a new Node instance
 func NewNode(cfg *Details) (*Node, error) {
-	httpClient, err := jsonrpcclient.DefaultHTTPClient(cfg.RPC.Address)
+	rpcAddress := utils.GetEnvOr(env.RPCAddress, cfg.RPC.Address)
+	httpClient, err := jsonrpcclient.DefaultHTTPClient(rpcAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +54,7 @@ func NewNode(cfg *Details) (*Node, error) {
 	}
 	httpTransport.MaxConnsPerHost = cfg.RPC.MaxConnections
 
-	rpcClient, err := httpclient.NewWithClient(cfg.RPC.Address, "/websocket", httpClient)
+	rpcClient, err := httpclient.NewWithClient(rpcAddress, "/websocket", httpClient)
 	if err != nil {
 		return nil, err
 	}
