@@ -203,7 +203,8 @@ func (cp *Node) Tx(hash string) (*types.Transaction, error) {
 	}
 	logs, err := sdk.ParseABCILogs(result.TxResult.Log)
 	if err != nil {
-		return nil, err
+		cp.client.Logger.Error("failed to parse ABCI logs", "err", err)
+		logs = []sdk.ABCIMessageLog{}
 	}
 
 	var convTx = &types.Transaction{
