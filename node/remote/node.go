@@ -201,6 +201,8 @@ func (cp *Node) Tx(hash string) (*types.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	result.TxResult.Log = strings.ReplaceAll(result.TxResult.Log, "\\u0000", "__NULL__")
 	logs, err := sdk.ParseABCILogs(result.TxResult.Log)
 	if err != nil {
 		cp.client.Logger.Error("failed to parse ABCI logs", "err", err)
