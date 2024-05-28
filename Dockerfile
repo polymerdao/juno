@@ -37,10 +37,15 @@ FROM alpine:edge
 
 # Install ca-certificates
 RUN apk add --update ca-certificates
-WORKDIR /home
 
 # Install bash
 RUN apk add --no-cache bash
+
+WORKDIR /home
+
+RUN addgroup -g 333 polymer && adduser -D -u 333 -G polymer polymer
+RUN chown -R polymer:polymer /home
+USER polymer
 
 # Copy over binaries from the build-env
 COPY --from=build-env /go/bin/juno /usr/bin/juno
